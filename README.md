@@ -1,16 +1,18 @@
 # gdrive-toolkit
 
 various tools for managing files on google drive using gdrive and csvkit.
+(these tools can be very slow especially if you are searching for a file deep inside a big folder because it works by enumerating all file and folder inside the drive and creating a tree)
 
 For now there is:
 
 - searching for id from an exact file or folder name (two algorithm bfs and dfs, no correction for multiple folders of files with the same name at the moment)
 - getting the list of object in a folder (by name), possibility to filter them by folders, regular documents, google documents, or shortcuts
+- return the size of all file in a folder or of a single file (no correction for multiple folders of files with the same name at the moment)
+- searching using directly the path (both files and folders)
 
 TODO
 
-- return the size of all file in a folder or of a single file
-- correction of duplicates while getting ids
+- correction for files or folders with the same names
 
 # Installing
 

@@ -263,8 +263,144 @@ bfs-get-id() {
     fi
 }
 
-get-size() {
+# $1 file id
+get-file-size() {
+
+    if [[ $# -ne 1 ]]; then
+        [[ $VERBOSE -ge $QUIET ]] && echo "get-file-size - error wrong argument - $*" >&2
+        return 1
+    fi
+
+    [[ $VERBOSE -ge $DEBUG ]] && echo "get-file-size - starting - $*" >&2
+
     local result=$(gdrive files info --size-in-bytes "$1" | grep "Size:")
     local size=${#result}
     echo "${result:$SIZE_PREFIX_LENGTH:$size}"
+    return 0
+}
+
+# $1 array of file ids
+get-size-file-list() {
+    if [[ $# -ne 1 ]]; then
+        [[ $VERBOSE -ge $QUIET ]] && echo "get-size-file-list - error wrong argument - $*" >&2
+        return 1
+    fi
+
+    local -i size=0
+    local -n list=$1
+
+    for elem in "${list[@]}"; do
+        local temp=$(get-file-size "$elem")
+        size+=$(($temp + 0))
+    done
+
+    echo "$size"
+    return 0
+}
+
+# $1 folder name
+get-folder-size() {
+    if [[ $# -ne 1 ]]; then
+        [[ $VERBOSE -ge $QUIET ]] && echo "get-folder-size - error wrong argument - $*" >&2
+        return 1
+    fi
+
+    local -a temp
+    local -a files
+
+    get-list temp "$1" "r"
+    get-list files "$1" "d"
+
+    for elem in "${files[@]}"; do
+        temp+=("$elem")
+    done
+    files=()
+
+    for elem in "${temp[@]}"; do
+        IFS=',' read -a arg <<< "$elem"
+        files+=("${arg[0]}")
+    done
+
+    echo "$(get-size-file-list files)"
+}
+
+# $1 folder ('<id>,<name>' string)
+get-folder-size-recursive() {
+    if [[ $# -ne 1 ]]; then
+        [[ $VERBOSE -ge $QUIET ]] && echo "get-folder-size-recursive - error wrong argument - $*" >&2
+        return 1
+    fi
+
+    local -i tot_size=0
+
+    local folder_name=$(gen-folder-csv "$1")
+
+    local folder_tot=$(get-folder-size "$folder_name")
+    tot_size+=$(($folder_tot + 0))
+
+    local queue
+    queue-constructor queue
+
+    local folders_list
+    get-list folders_list "$folder_name" "f"
+
+    for i in "${folders_list[@]}"; do
+        append queue "$i"
+    done
+
+    local size=$(length queue)
+    while [[ $size -gt 0 ]]; do
+        pop queue > .tempfile && local val=$(<.tempfile) ; rm -f .tempfile
+
+        folder_name=$(gen-folder-csv "$val")
+        folder_tot=$(get-folder-size "$folder_name")
+        tot_size+=$(($folder_tot + 0))
+
+        get-list folders_list "$folder_name" "f"
+
+        for i in "${folders_list[@]}"; do
+            append queue "$i"
+        done
+
+        size=$(length queue)
+    done
+
+    echo "$tot_size"
+    return 0
+}
+
+# $1 array with path 
+search-directly-id () {
+    if [[ $# -ne 1 ]]; then
+        [[ $VERBOSE -ge $QUIET ]] && echo "search-directly-id - error wrong argument - $*" >&2
+        return 1
+    fi
+
+    local -n arr=$1
+    [[ $VERBOSE -ge $DEBUG ]] && echo "search-directly-id - ${arr[@]}" >&2
+
+    local -i size=${#arr[@]}
+
+    local folder=$(gen-folder-csv)
+    local id=""
+
+    for (( i = 1 ; i < (( $size - 1 )) ; i++ )); do
+        id=$(retrieve-id "$folder" "${arr[$i]}")
+        if [[ -z $id ]]; then
+            [[ $VERBOSE -ge $QUIET ]] && echo "search-directly-id - path not correcct - ${arr[@]}" >&2
+            return 1
+        fi
+        folder=$(gen-folder-csv "${id},${arr[$i]}")
+        if [[ -z $folder ]]; then
+            [[ $VERBOSE -ge $QUIET ]] && echo "search-directly-id - path not correcct - ${arr[@]}" >&2
+            return 1
+        fi
+    done
+    id=$(retrieve-id "$folder" "${arr[-1]}")
+    echo "$id"
+    if [[ -z $id ]]; then
+        return 1
+    else
+        return 0
+    fi
 }

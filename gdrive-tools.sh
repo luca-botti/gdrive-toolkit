@@ -23,7 +23,8 @@ PERSISTENT=0
 # 1 -> BFS Branch First Search <- default
 MODE=1
 
-
+# variable for specifing path, always use absolutes paths starting with root/
+GIVEN_PATH=""
 
 #### GETLIST ####
 
@@ -76,20 +77,33 @@ Help() {
 
 GetId() {
 
-    # TODO given a path go directly
-
     mk-cd-folder $TEMP_FOLDER_NAME
 
-    if [[ $MODE -eq 1 ]]; then
-        echo "$(bfs-get-id "$1")"
-    elif [[ $MODE -eq 0 ]]; then
-        echo "$(dfs-get-id "$1")"
+    if [[ ! -z $GIVEN_PATH ]]; then
+        IFS='/' read -a path <<< "$GIVEN_PATH"
+        if [[ "$ROOT_CSV" != "${path[0]}" ]]; then
+            [[ $VERBOSE -ge $QUIET ]] && echo "GIVEN_PATH not starting with required incipit root/">&2
+            cd-rm-folder $TEMP_FOLDER_NAME
+            return 1
+        fi
+        if [[ "$1" != "${path[-1]}" ]]; then
+            [[ $VERBOSE -ge $QUIET ]] && echo "the required file and the path do not corrispond">&2
+            cd-rm-folder $TEMP_FOLDER_NAME
+            return 1
+        fi
+        echo "$(search-directly-id path)"
     else
-        [[ $VERBOSE -ge $QUIET ]] && echo "\$MODE error can be only 0 (DFS) or 1 (BFS), -> $MODE">&2
+        if [[ $MODE -eq 1 ]]; then
+            echo "$(bfs-get-id "$1")"
+        elif [[ $MODE -eq 0 ]]; then
+            echo "$(dfs-get-id "$1")"
+        else
+            [[ $VERBOSE -ge $QUIET ]] && echo "\$MODE error can be only 0 (DFS) or 1 (BFS), -> $MODE">&2
+            cd-rm-folder $TEMP_FOLDER_NAME
+            return 1
+        fi
     fi
-
     cd-rm-folder $TEMP_FOLDER_NAME
-
     return 0
 }
 
@@ -154,8 +168,29 @@ GetList(){
     fi
 }
 
+# $1 file or folder name, use -f option for getting the complessive size of all file in a folder
+GetSize () {
+
+    local selected_id=$(GetId "$1")
+
+    if [[ -z $selected_id ]]; then
+        echo "Not found"
+        return 1
+    fi
+
+
+    if [[ ${#SELECTOR[@]} -eq 1 && "${SELECTOR[0]}" == "f" ]]; then # request for the size of a folder
+        mk-cd-folder $TEMP_FOLDER_NAME
+        local temp=$1
+        echo "$(get-folder-size-recursive "${selected_id},${temp}")"
+        cd-rm-folder $TEMP_FOLDER_NAME
+    else
+        echo "$(get-file-size "$selected_id")"
+    fi
+}
+
 OPSTRING=":hg:cvmil:pfdrs"
-OPLONGSTRING="help,get-id:,cached,verbose::,mode,invalidate,persistent,get-list:,id,name"
+OPLONGSTRING="help,get-id:,cached,verbose::,mode,invalidate,persistent,get-list:,id,name,get-size:,path:"
 TEMP=$(getopt -o $OPSTRING --long $OPLONGSTRING -n 'gdrive-tools.bash' -- "$@")
 
 if [ $? -ne 0 ]; then
@@ -183,6 +218,17 @@ while true; do
         '-l'|'--get-list') # required argoument
             ARG=${ARG:-$2} 
             FUNCTION+=('GetList')
+            shift 2
+            continue
+            ;;
+        '--get-size') # required argoument
+            ARG=${ARG:-$2} 
+            FUNCTION+=('GetSize')
+            shift 2
+            continue
+            ;;
+        '--path') # required argoument
+            GIVEN_PATH="$2"
             shift 2
             continue
             ;;
@@ -268,7 +314,7 @@ fi
 
 
 if [[ ${#FUNCTION[@]} -gt 1 ]]; then
-    [[ $VERBOSE -ge $QUIET ]] && echo "you can use only one of this argouments in one call: -g or --get-id, -i or --invalidate, --get-list"
+    [[ $VERBOSE -ge $QUIET ]] && echo "you can use only one of this argouments in one call: -g or --get-id, -i or --invalidate, --get-list, --get-size"
     exit
 fi
 
