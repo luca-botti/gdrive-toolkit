@@ -42,6 +42,9 @@ RESULTS=()
 # s shortcut
 SELECTOR=()
 
+# variable used for specifiing some arguments to be passed directly to gdrive while constructiong the csv file
+OPTIONS=""
+
 
 ########################################
 
@@ -126,14 +129,22 @@ GetList(){
 
     local string="$folder_id,$1"
 
-    gen-folder-csv "$string" > /dev/null
+    if [[ ! -z $OPTIONS ]]; then
+        local csv_name="$(tr -d "[:punct:]\n " <<< $(echo $OPTIONS)-$1)"
+        modified-gen-folder-csv "$string" "$OPTIONS" "$csv_name" > /dev/null
+    else
+        local csv_name=$1
+        gen-folder-csv "$string" > /dev/null
+    fi
+
+    
 
     local -a results
 
     if [[ ${#SELECTOR[@]} -eq 0 ]]; then
-        get-list results "$1"
+        get-list results "$csv_name"
     elif [[ ${#SELECTOR[@]} -eq 1 ]]; then
-        get-list results "$1" "${SELECTOR[0]}"
+        get-list results "$csv_name" "${SELECTOR[0]}"
     fi
 
     cd-rm-folder $TEMP_FOLDER_NAME
@@ -190,7 +201,7 @@ GetSize () {
 }
 
 OPSTRING=":hg:cvmil:pfdrs"
-OPLONGSTRING="help,get-id:,cached,verbose::,mode,invalidate,persistent,get-list:,id,name,get-size:,path:"
+OPLONGSTRING="help,get-id:,cached,verbose::,mode,invalidate,persistent,get-list:,id,name,get-size:,path:,options:"
 TEMP=$(getopt -o $OPSTRING --long $OPLONGSTRING -n 'gdrive-tools.bash' -- "$@")
 
 if [ $? -ne 0 ]; then
@@ -240,6 +251,11 @@ while true; do
         '--name')
             RESULTS+=("n")
             shift
+            continue
+            ;;
+        '--options')
+            OPTIONS="$2"
+            shift 2
             continue
             ;;
         '-i'|'--invalidate') 

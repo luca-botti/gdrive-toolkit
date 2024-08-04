@@ -7,12 +7,14 @@ For now there is:
 
 - searching for id from an exact file or folder name (two algorithm bfs and dfs, no correction for multiple folders of files with the same name at the moment)
 - getting the list of object in a folder (by name), possibility to filter them by folders, regular documents, google documents, or shortcuts
+- while getting the list it is possible to send some more argouments directly to gdrive (like orderby or max)
 - return the size of all file in a folder or of a single file (no correction for multiple folders of files with the same name at the moment)
 - searching using directly the path (both files and folders)
 
 TODO
 
 - correction for files or folders with the same names
+- correction for list command that output only the first 30 files in the folder
 
 # Installing
 
@@ -40,4 +42,5 @@ sudo cp target/release/gdrive /usr/local/bin # adding gdrive to PATH
 cd ../..
 sudo rm -r .gdrive #cleaning
 ```
+
 Then follow the instruction in the [gdrive repository](https://github.com/glotlabs/gdrive) for adding the account
